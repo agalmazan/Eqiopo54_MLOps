@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/569103327458944616/06b4283ed26a4418b887936c03280b6e/artifacts
+deleted_time: 1762929441772
+end_time: 1762929234782
+entry_point_name: ''
+experiment_id: '569103327458944616'
+lifecycle_stage: deleted
+run_id: 06b4283ed26a4418b887936c03280b6e
+run_name: aged-duck-372
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762929234298
+status: 3
+tags: []
+user_id: root

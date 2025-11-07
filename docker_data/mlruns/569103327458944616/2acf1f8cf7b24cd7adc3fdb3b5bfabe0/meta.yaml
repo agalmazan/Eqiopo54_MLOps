@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/569103327458944616/2acf1f8cf7b24cd7adc3fdb3b5bfabe0/artifacts
+deleted_time: 1762929441772
+end_time: 1762929430601
+entry_point_name: ''
+experiment_id: '569103327458944616'
+lifecycle_stage: deleted
+run_id: 2acf1f8cf7b24cd7adc3fdb3b5bfabe0
+run_name: train
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762929427422
+status: 3
+tags: []
+user_id: root

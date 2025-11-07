@@ -101,5 +101,4 @@ Equipo54_MLOps/models/
 Equipo54_MLOps/reports/metrics/
 Equipo54_MLOps/reports/predictions.csv
 Equipo54_MLOps/src/data/processed/
-Equipo54_MLOps/src/data/raw/*.csv
-
+mlartifacts
