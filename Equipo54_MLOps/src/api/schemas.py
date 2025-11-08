@@ -13,102 +13,98 @@ class StudentFeatures(BaseModel):
     
     Attributes match the features expected by the trained model
     """
-    gender: Literal["Male", "Female"] = Field(
+    gender: Literal["MALE", "FEMALE", "NAN"] = Field(
         ...,
         description="Student's gender",
-        example="Male"
+        example="MALE"
     )
     
-    caste: Literal["General", "OBC", "SC", "ST"] = Field(
+    caste: Literal["GENERAL", "OBC", "SC", "ST"] = Field(
         ...,
         description="Student's caste category",
-        example="General"
+        example="GENERAL"
     )
     
-    coaching: Literal["Yes", "No"] = Field(
+    coaching: Literal["NO", "OA", "WA"] = Field(
         ...,
-        description="Whether student takes coaching classes",
-        example="Yes"
+        description="Coaching type (NO=None, OA=Online/Offline, WA=Weekend)",
+        example="OA"
     )
     
-    time: int = Field(
+    time: Literal["ONE", "TWO", "THREE", "FOUR", "FIVE", "SEVEN"] = Field(
         ...,
-        ge=0,
-        le=24,
-        description="Study time in hours per day",
-        example=5
+        description="Study time in hours per day (as text)",
+        example="FIVE"
     )
     
-    class_ten_education: Literal["CBSE", "ICSE", "State Board", "Others"] = Field(
+    class_ten_education: Literal["CBSE", "SEBA", "OTHERS"] = Field(
         ...,
         alias="Class_ten_education",
         description="Type of education board for Class 10",
         example="CBSE"
     )
     
-    twelve_education: Literal["CBSE", "ICSE", "State Board", "Others"] = Field(
+    twelve_education: Literal["CBSE", "AHSEC", "OTHERS", "NAN"] = Field(
         ...,
         description="Type of education board for Class 12",
         example="CBSE"
     )
     
-    medium: Literal["English", "Hindi", "Regional"] = Field(
+    medium: Literal["ENGLISH", "ASSAMESE", "OTHERS"] = Field(
         ...,
         description="Medium of instruction",
-        example="English"
+        example="ENGLISH"
     )
     
-    class_x_percentage: float = Field(
+    class_x_percentage: Literal["AVERAGE", "EXCELLENT", "GOOD", "VG", "NAN"] = Field(
         ...,
         alias="Class_ X_Percentage",
-        ge=0,
-        le=100,
-        description="Percentage obtained in Class 10 (0-100)",
-        example=85.5
+        description="Performance category in Class 10",
+        example="EXCELLENT"
     )
     
-    class_xii_percentage: float = Field(
+    class_xii_percentage: Literal["AVERAGE", "EXCELLENT", "GOOD", "VG", "NAN"] = Field(
         ...,
         alias="Class_XII_Percentage",
-        ge=0,
-        le=100,
-        description="Percentage obtained in Class 12 (0-100)",
-        example=78.2
+        description="Performance category in Class 12",
+        example="GOOD"
     )
     
     father_occupation: Literal[
-        "Farmer", "Government Officer", "Private Job", "Business", "Others"
+        "BANK_OFFICIAL", "BUSINESS", "COLLEGE_TEACHER", "CULTIVATOR", 
+        "DOCTOR", "ENGINEER", "SCHOOL_TEACHER", "OTHERS", "NAN"
     ] = Field(
         ...,
         alias="Father_occupation",
         description="Father's occupation",
-        example="Government Officer"
+        example="BANK_OFFICIAL"
     )
     
     mother_occupation: Literal[
-        "Housewife", "Teacher", "Government Officer", "Private Job", "Business", "Others"
+        "BANK_OFFICIAL", "BUSINESS", "COLLEGE_TEACHER", "CULTIVATOR", 
+        "DOCTOR", "ENGINEER", "HOUSE_WIFE", "SCHOOL_TEACHER", "OTHERS", "NAN"
     ] = Field(
         ...,
         alias="Mother_occupation",
         description="Mother's occupation",
-        example="Teacher"
+        example="HOUSE_WIFE"
     )
 
     class Config:
         populate_by_name = True
-        schema_extra = {
+        json_schema_extra = {
             "example": {
-                "gender": "Male",
-                "caste": "General",
-                "coaching": "Yes",
-                "time": 5,
+                "gender": "MALE",
+                "caste": "GENERAL",
+                "coaching": "OA",
+                "time": "FIVE",
                 "Class_ten_education": "CBSE",
                 "twelve_education": "CBSE",
-                "medium": "English",
-                "Class_ X_Percentage": 85.5,
-                "Class_XII_Percentage": 78.2,
-                "Father_occupation": "Government Officer",
-                "Mother_occupation": "Teacher"
+                "medium": "ENGLISH",
+                "Class_ X_Percentage": "EXCELLENT",
+                "Class_XII_Percentage": "GOOD",
+                "Father_occupation": "BANK_OFFICIAL",
+                "Mother_occupation": "HOUSE_WIFE"
             }
         }
 
@@ -138,7 +134,8 @@ class PredictionResponse(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        protected_namespaces = ()
+        json_schema_extra = {
             "example": {
                 "prediction": "Good",
                 "probability": 0.85,
@@ -152,6 +149,9 @@ class HealthResponse(BaseModel):
     status: str = Field(..., description="API health status", example="healthy")
     model_loaded: bool = Field(..., description="Whether model is loaded", example=True)
     model_version: Optional[str] = Field(None, description="Loaded model version", example="1")
+    
+    class Config:
+        protected_namespaces = ()
 
 
 class ErrorResponse(BaseModel):

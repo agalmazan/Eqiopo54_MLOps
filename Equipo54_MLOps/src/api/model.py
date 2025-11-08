@@ -28,6 +28,7 @@ class ModelPredictor:
         """
         self.model = None
         self.encoders = None
+        self.target_encoder = None
         self.model_version = None
         self.feature_names = [
             'Gender', 'Caste', 'coaching', 'time', 'Class_ten_education',
@@ -57,10 +58,19 @@ class ModelPredictor:
             # Load encoders if provided
             if encoders_path and encoders_path.exists():
                 logger.info(f"Loading encoders from: {encoders_path}")
-                self.encoders = joblib.load(encoders_path)
+                encoders_data = joblib.load(encoders_path)
+                # Extract the actual encoders dict from the structure
+                if isinstance(encoders_data, dict) and 'feature_encoders' in encoders_data:
+                    self.encoders = encoders_data['feature_encoders']
+                    self.target_encoder = encoders_data.get('target_encoder')
+                    logger.info(f"Loaded feature encoders for: {list(self.encoders.keys())}")
+                else:
+                    self.encoders = encoders_data
+                    self.target_encoder = None
             else:
                 logger.warning("No encoders file provided or found")
                 self.encoders = None
+                self.target_encoder = None
             
             # Extract version from path (e.g., models/latest or models:/model_name/1)
             self.model_version = self._extract_version(model_path)
@@ -94,15 +104,22 @@ class ModelPredictor:
         Returns:
             DataFrame ready for prediction
         """
-        # Map API field names to model feature names
+        # Map API field names to model feature names (handles both Python names and aliases)
         feature_mapping = {
+            # Direct mappings (lowercase API names to model column names)
             'gender': 'Gender',
             'caste': 'Caste',
             'coaching': 'coaching',
             'time': 'time',
-            'Class_ten_education': 'Class_ten_education',
+            'class_ten_education': 'Class_ten_education',
             'twelve_education': 'twelve_education',
             'medium': 'medium',
+            'class_x_percentage': 'Class_ X_Percentage',
+            'class_xii_percentage': 'Class_XII_Percentage',
+            'father_occupation': 'Father_occupation',
+            'mother_occupation': 'Mother_occupation',
+            # Alias mappings (exact model column names that might come from Pydantic)
+            'Class_ten_education': 'Class_ten_education',
             'Class_ X_Percentage': 'Class_ X_Percentage',
             'Class_XII_Percentage': 'Class_XII_Percentage',
             'Father_occupation': 'Father_occupation',
@@ -110,24 +127,26 @@ class ModelPredictor:
         }
         
         # Create DataFrame with mapped feature names
-        mapped_features = {
-            feature_mapping[k]: v for k, v in features.items() 
-            if k in feature_mapping
-        }
+        mapped_features = {}
+        for k, v in features.items():
+            mapped_key = feature_mapping.get(k, k)
+            mapped_features[mapped_key] = v
         
         df = pd.DataFrame([mapped_features])
+        
+        # Ensure correct column order BEFORE encoding
+        df = df[self.feature_names]
         
         # Apply label encoding if encoders are available
         if self.encoders:
             for col, encoder in self.encoders.items():
-                if col in df.columns and col != 'Performance':
+                if col in df.columns:
                     try:
                         df[col] = encoder.transform(df[col])
                     except ValueError as e:
-                        logger.warning(f"Could not encode {col}: {e}")
-        
-        # Ensure correct column order
-        df = df[self.feature_names]
+                        logger.error(f"Could not encode {col}: {e}")
+                        logger.error(f"Value '{df[col].iloc[0]}' not in encoder classes: {list(encoder.classes_)}")
+                        raise ValueError(f"Invalid value for {col}: '{df[col].iloc[0]}'. Expected one of: {list(encoder.classes_)}")
         
         return df
     
@@ -161,10 +180,10 @@ class ModelPredictor:
             # Model doesn't support predict_proba
             max_prob = None
         
-        # Decode prediction if encoders available
-        if self.encoders and 'Performance' in self.encoders:
+        # Decode prediction if target encoder available
+        if self.target_encoder:
             try:
-                prediction = self.encoders['Performance'].inverse_transform([prediction])[0]
+                prediction = self.target_encoder.inverse_transform([prediction])[0]
             except Exception as e:
                 logger.warning(f"Could not decode prediction: {e}")
         
