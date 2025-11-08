@@ -30,10 +30,9 @@ class ModelPredictor:
         self.encoders = None
         self.model_version = None
         self.feature_names = [
-            'Gender', 'Caste', 'mathematics_marks', 'english_marks', 
-            'science_marks', 'Father_occupation', 'Mother_occupation',
-            'number_of_siblings', 'Boarding', 'distance_from_home', 
-            'time', 'coaching'
+            'Gender', 'Caste', 'coaching', 'time', 'Class_ten_education',
+            'twelve_education', 'medium', 'Class_ X_Percentage',
+            'Class_XII_Percentage', 'Father_occupation', 'Mother_occupation'
         ]
         
         if model_path:
@@ -99,16 +98,15 @@ class ModelPredictor:
         feature_mapping = {
             'gender': 'Gender',
             'caste': 'Caste',
-            'mathematics_marks': 'mathematics_marks',
-            'english_marks': 'english_marks',
-            'science_marks': 'science_marks',
-            'father_occupation': 'Father_occupation',
-            'mother_occupation': 'Mother_occupation',
-            'number_of_siblings': 'number_of_siblings',
-            'boarding': 'Boarding',
-            'distance_from_home': 'distance_from_home',
+            'coaching': 'coaching',
             'time': 'time',
-            'coaching': 'coaching'
+            'Class_ten_education': 'Class_ten_education',
+            'twelve_education': 'twelve_education',
+            'medium': 'medium',
+            'Class_ X_Percentage': 'Class_ X_Percentage',
+            'Class_XII_Percentage': 'Class_XII_Percentage',
+            'Father_occupation': 'Father_occupation',
+            'Mother_occupation': 'Mother_occupation'
         }
         
         # Create DataFrame with mapped feature names

@@ -25,64 +25,10 @@ class StudentFeatures(BaseModel):
         example="General"
     )
     
-    mathematics_marks: int = Field(
+    coaching: Literal["Yes", "No"] = Field(
         ...,
-        ge=0,
-        le=100,
-        description="Marks obtained in Mathematics (0-100)",
-        example=85
-    )
-    
-    english_marks: int = Field(
-        ...,
-        ge=0,
-        le=100,
-        description="Marks obtained in English (0-100)",
-        example=78
-    )
-    
-    science_marks: int = Field(
-        ...,
-        ge=0,
-        le=100,
-        description="Marks obtained in Science (0-100)",
-        example=82
-    )
-    
-    father_occupation: Literal[
-        "Farmer", "Government Officer", "Private Job", "Business", "Others"
-    ] = Field(
-        ...,
-        description="Father's occupation",
-        example="Government Officer"
-    )
-    
-    mother_occupation: Literal[
-        "Housewife", "Teacher", "Government Officer", "Private Job", "Business", "Others"
-    ] = Field(
-        ...,
-        description="Mother's occupation",
-        example="Teacher"
-    )
-    
-    number_of_siblings: int = Field(
-        ...,
-        ge=0,
-        le=10,
-        description="Number of siblings",
-        example=2
-    )
-    
-    boarding: Literal["Yes", "No"] = Field(
-        ...,
-        description="Whether student is a boarder",
-        example="No"
-    )
-    
-    distance_from_home: Literal["Near", "Far", "Very Far"] = Field(
-        ...,
-        description="Distance from home to school",
-        example="Near"
+        description="Whether student takes coaching classes",
+        example="Yes"
     )
     
     time: int = Field(
@@ -93,27 +39,76 @@ class StudentFeatures(BaseModel):
         example=5
     )
     
-    coaching: Literal["Yes", "No"] = Field(
+    class_ten_education: Literal["CBSE", "ICSE", "State Board", "Others"] = Field(
         ...,
-        description="Whether student takes coaching classes",
-        example="Yes"
+        alias="Class_ten_education",
+        description="Type of education board for Class 10",
+        example="CBSE"
+    )
+    
+    twelve_education: Literal["CBSE", "ICSE", "State Board", "Others"] = Field(
+        ...,
+        description="Type of education board for Class 12",
+        example="CBSE"
+    )
+    
+    medium: Literal["English", "Hindi", "Regional"] = Field(
+        ...,
+        description="Medium of instruction",
+        example="English"
+    )
+    
+    class_x_percentage: float = Field(
+        ...,
+        alias="Class_ X_Percentage",
+        ge=0,
+        le=100,
+        description="Percentage obtained in Class 10 (0-100)",
+        example=85.5
+    )
+    
+    class_xii_percentage: float = Field(
+        ...,
+        alias="Class_XII_Percentage",
+        ge=0,
+        le=100,
+        description="Percentage obtained in Class 12 (0-100)",
+        example=78.2
+    )
+    
+    father_occupation: Literal[
+        "Farmer", "Government Officer", "Private Job", "Business", "Others"
+    ] = Field(
+        ...,
+        alias="Father_occupation",
+        description="Father's occupation",
+        example="Government Officer"
+    )
+    
+    mother_occupation: Literal[
+        "Housewife", "Teacher", "Government Officer", "Private Job", "Business", "Others"
+    ] = Field(
+        ...,
+        alias="Mother_occupation",
+        description="Mother's occupation",
+        example="Teacher"
     )
 
     class Config:
+        populate_by_name = True
         schema_extra = {
             "example": {
                 "gender": "Male",
                 "caste": "General",
-                "mathematics_marks": 85,
-                "english_marks": 78,
-                "science_marks": 82,
-                "father_occupation": "Government Officer",
-                "mother_occupation": "Teacher",
-                "number_of_siblings": 2,
-                "boarding": "No",
-                "distance_from_home": "Near",
+                "coaching": "Yes",
                 "time": 5,
-                "coaching": "Yes"
+                "Class_ten_education": "CBSE",
+                "twelve_education": "CBSE",
+                "medium": "English",
+                "Class_ X_Percentage": 85.5,
+                "Class_XII_Percentage": 78.2,
+                "Father_occupation": "Government Officer",
+                "Mother_occupation": "Teacher"
             }
         }
 

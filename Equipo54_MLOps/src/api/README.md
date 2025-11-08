@@ -40,16 +40,15 @@ Make a prediction for a student's performance.
 {
   "gender": "Male",
   "caste": "General",
-  "mathematics_marks": 85,
-  "english_marks": 78,
-  "science_marks": 82,
-  "father_occupation": "Government Officer",
-  "mother_occupation": "Teacher",
-  "number_of_siblings": 2,
-  "boarding": "No",
-  "distance_from_home": "Near",
+  "coaching": "Yes",
   "time": 5,
-  "coaching": "Yes"
+  "Class_ten_education": "CBSE",
+  "twelve_education": "CBSE",
+  "medium": "English",
+  "Class_ X_Percentage": 85.5,
+  "Class_XII_Percentage": 78.2,
+  "Father_occupation": "Government Officer",
+  "Mother_occupation": "Teacher"
 }
 ```
 
