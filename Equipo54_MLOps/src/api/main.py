@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Starting FastAPI application...")
     
     # Determine model path (prioritize latest, fallback to root)
-    project_root = Path(__file__).resolve().parents[3]
+    project_root = Path(__file__).resolve().parents[2]  # src/api/main.py -> Equipo54_MLOps/
     model_dir = project_root / "models" / "latest"
     
     model_path = model_dir / "decision_tree_model.pkl"
