@@ -87,7 +87,26 @@ Get information about the loaded model.
 }
 ```
 
-## 🔧 Testing with curl
+## 🔧 Testing the API
+
+### Option 1: Postman Collection
+
+Import the provided Postman collection for easy testing:
+
+**File**: `src/api/postman_collection.json`
+
+The collection includes:
+- ✅ Health check endpoint
+- ✅ Model info endpoint
+- ✅ Prediction examples (Good, Excellent, Average students)
+- ✅ Validation error test (invalid data)
+
+**How to use:**
+1. Open Postman
+2. Click "Import" → Select `postman_collection.json`
+3. Run requests from the collection
+
+### Option 2: curl Commands
 
 ```bash
 # Health check
@@ -111,6 +130,15 @@ curl -X POST "http://localhost:8000/predict" \
     "coaching": "Yes"
   }'
 ```
+
+### Option 3: Python Test Script
+
+```bash
+# Run automated tests
+python src/api/test_api.py
+```
+
+This will validate all endpoints and return a test report.
 
 ## 🐍 Testing with Python
 
