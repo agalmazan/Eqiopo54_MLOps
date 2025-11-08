@@ -6,6 +6,12 @@ REST API service built with FastAPI to serve the Student Performance prediction 
 
 This API exposes the trained Decision Tree model for real-time predictions of student performance based on demographic, academic, and behavioral features.
 
+> **⚠️ Important**: All input values must match the exact format from the training data. The model expects:
+> - **Categorical values in UPPERCASE** (e.g., `"MALE"`, not `"Male"`)
+> - **Percentages as categories** (`"EXCELLENT"`, `"GOOD"`, `"AVERAGE"`, `"VG"`)
+> - **Time as text** (`"FIVE"`, not `5`)
+> - See [Input Validation](#-input-validation) section for complete details
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -17,11 +23,17 @@ pip install -r src/api/requirements.txt
 
 ### Running the API
 
+**Option 1: Using helper script (Recommended)**
 ```bash
 # From project root
 cd Equipo54_MLOps
+python run_api.py
+```
 
-# Run with uvicorn
+**Option 2: Using uvicorn directly**
+```bash
+# From project root
+cd Equipo54_MLOps
 uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -38,25 +50,25 @@ Make a prediction for a student's performance.
 **Request Body:**
 ```json
 {
-  "gender": "Male",
-  "caste": "General",
-  "coaching": "Yes",
-  "time": 5,
+  "gender": "MALE",
+  "caste": "GENERAL",
+  "coaching": "OA",
+  "time": "FIVE",
   "Class_ten_education": "CBSE",
   "twelve_education": "CBSE",
-  "medium": "English",
-  "Class_ X_Percentage": 85.5,
-  "Class_XII_Percentage": 78.2,
-  "Father_occupation": "Government Officer",
-  "Mother_occupation": "Teacher"
+  "medium": "ENGLISH",
+  "Class_ X_Percentage": "EXCELLENT",
+  "Class_XII_Percentage": "GOOD",
+  "Father_occupation": "BANK_OFFICIAL",
+  "Mother_occupation": "HOUSE_WIFE"
 }
 ```
 
 **Response:**
 ```json
 {
-  "prediction": "Good",
-  "probability": 0.85,
+  "prediction": "Excellent",
+  "probability": 0.397,
   "model_version": "latest"
 }
 ```
@@ -81,7 +93,12 @@ Get information about the loaded model.
 {
   "model_version": "latest",
   "model_type": "DecisionTreeClassifier",
-  "features": ["Gender", "Caste", "mathematics_marks", ...],
+  "features": [
+    "Gender", "Caste", "coaching", "time", 
+    "Class_ten_education", "twelve_education", "medium",
+    "Class_ X_Percentage", "Class_XII_Percentage",
+    "Father_occupation", "Mother_occupation"
+  ],
   "target_classes": ["Average", "Good", "Very Good", "Excellent"]
 }
 ```
@@ -115,25 +132,31 @@ curl http://localhost:8000/health
 curl -X POST "http://localhost:8000/predict" \
   -H "Content-Type: application/json" \
   -d '{
-    "gender": "Male",
-    "caste": "General",
-    "mathematics_marks": 85,
-    "english_marks": 78,
-    "science_marks": 82,
-    "father_occupation": "Government Officer",
-    "mother_occupation": "Teacher",
-    "number_of_siblings": 2,
-    "boarding": "No",
-    "distance_from_home": "Near",
-    "time": 5,
-    "coaching": "Yes"
+    "gender": "MALE",
+    "caste": "GENERAL",
+    "coaching": "OA",
+    "time": "FIVE",
+    "Class_ten_education": "CBSE",
+    "twelve_education": "CBSE",
+    "medium": "ENGLISH",
+    "Class_ X_Percentage": "EXCELLENT",
+    "Class_XII_Percentage": "GOOD",
+    "Father_occupation": "BANK_OFFICIAL",
+    "Mother_occupation": "HOUSE_WIFE"
   }'
 ```
 
 ### Option 3: Python Test Script
 
+**Quick Test:**
 ```bash
-# Run automated tests
+# From project root
+python test_predict.py
+```
+
+**Full Test Suite:**
+```bash
+# Run automated tests (if available)
 python src/api/test_api.py
 ```
 
@@ -153,23 +176,22 @@ print(response.json())
 
 # Make prediction
 student_data = {
-    "gender": "Female",
+    "gender": "FEMALE",
     "caste": "OBC",
-    "mathematics_marks": 92,
-    "english_marks": 88,
-    "science_marks": 90,
-    "father_occupation": "Business",
-    "mother_occupation": "Teacher",
-    "number_of_siblings": 1,
-    "boarding": "Yes",
-    "distance_from_home": "Near",
-    "time": 6,
-    "coaching": "Yes"
+    "coaching": "WA",
+    "time": "SEVEN",
+    "Class_ten_education": "CBSE",
+    "twelve_education": "CBSE",
+    "medium": "ENGLISH",
+    "Class_ X_Percentage": "EXCELLENT",
+    "Class_XII_Percentage": "EXCELLENT",
+    "Father_occupation": "ENGINEER",
+    "Mother_occupation": "COLLEGE_TEACHER"
 }
 
 response = requests.post(f"{BASE_URL}/predict", json=student_data)
 print(response.json())
-# Output: {"prediction": "Excellent", "probability": 0.92, "model_version": "latest"}
+# Output: {"prediction": "Excellent", "probability": 0.45, "model_version": "latest"}
 ```
 
 ## 📦 Model Artifact Information
@@ -188,19 +210,29 @@ The model can be loaded from different sources:
 
 ## 🔐 Input Validation
 
-All inputs are validated using Pydantic schemas:
+All inputs are validated using Pydantic schemas. **Note**: All values match the training data format.
 
-- **Gender**: Male, Female
-- **Caste**: General, OBC, SC, ST
-- **Marks**: 0-100 (integer)
-- **Father/Mother Occupation**: Predefined categories
-- **Number of Siblings**: 0-10 (integer)
-- **Boarding**: Yes, No
-- **Distance**: Near, Far, Very Far
-- **Study Time**: 0-24 hours (integer)
-- **Coaching**: Yes, No
+### Required Fields:
 
-Invalid inputs will return a `400 Bad Request` with error details.
+- **gender**: `"MALE"`, `"FEMALE"`, `"NAN"`
+- **caste**: `"GENERAL"`, `"OBC"`, `"SC"`, `"ST"`
+- **coaching**: `"NO"`, `"OA"` (Online/Offline Available), `"WA"` (Weekend Available)
+- **time**: `"ONE"`, `"TWO"`, `"THREE"`, `"FOUR"`, `"FIVE"`, `"SEVEN"` (study hours as text)
+- **Class_ten_education**: `"CBSE"`, `"SEBA"`, `"OTHERS"`
+- **twelve_education**: `"CBSE"`, `"AHSEC"`, `"OTHERS"`, `"NAN"`
+- **medium**: `"ENGLISH"`, `"ASSAMESE"`, `"OTHERS"`
+- **Class_ X_Percentage**: `"AVERAGE"`, `"GOOD"`, `"VG"` (Very Good), `"EXCELLENT"`, `"NAN"`
+- **Class_XII_Percentage**: `"AVERAGE"`, `"GOOD"`, `"VG"`, `"EXCELLENT"`, `"NAN"`
+- **Father_occupation**: `"BANK_OFFICIAL"`, `"BUSINESS"`, `"COLLEGE_TEACHER"`, `"CULTIVATOR"`, `"DOCTOR"`, `"ENGINEER"`, `"SCHOOL_TEACHER"`, `"OTHERS"`, `"NAN"`
+- **Mother_occupation**: `"BANK_OFFICIAL"`, `"BUSINESS"`, `"COLLEGE_TEACHER"`, `"CULTIVATOR"`, `"DOCTOR"`, `"ENGINEER"`, `"HOUSE_WIFE"`, `"SCHOOL_TEACHER"`, `"OTHERS"`, `"NAN"`
+
+**Important Notes:**
+- All categorical values are in **UPPERCASE**
+- Percentages are **categorical** (not numeric values)
+- Time is represented as **text** (not integers)
+- Snake_case field names (e.g., `class_x_percentage`) are automatically mapped to model column names
+
+Invalid inputs will return a `422 Unprocessable Entity` or `400 Bad Request` with validation error details.
 
 ## 🛠️ Development
 
