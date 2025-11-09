@@ -1,0 +1,18 @@
+# FastAPI Requirements
+# Dependencies needed to run the Student Performance Prediction API
+
+# Core FastAPI dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+
+# Data processing (already in main requirements, but listed for clarity)
+pandas>=1.5.0
+numpy>=1.23.0
+scikit-learn>=1.2.0
+joblib>=1.2.0
+
+# Optional: for development/testing
+httpx==0.25.1  # For testing FastAPI endpoints
+pytest==7.4.3
+pytest-asyncio==0.21.1

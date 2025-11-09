@@ -32,16 +32,26 @@ EQUIPO54_MLOps/
 │   │   │   └── student_entry_performance_modified.csv
 │   │   └── processed/                   # Datos procesados
 │   │       └── student_performance_clean.csv
-│   └── models/
-│       ├── __init__.py
-│       ├── train_model.py               # Entrenamiento
-│       └── predict_model.py             # Predicciones
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── train_model.py               # Entrenamiento
+│   │   └── predict_model.py             # Predicciones
+│   ├── pipeline/
+│   │   ├── run_pipeline.py              # Orquestador del pipeline
+│   │   ├── mlflow_runner.py             # Integración con MLflow
+│   │   └── params.yaml                  # Configuración del pipeline
+│   └── api/                             # 🆕 REST API con FastAPI
+│       ├── main.py                      # Aplicación FastAPI
+│       ├── model.py                     # Carga y predicción del modelo
+│       ├── schemas.py                   # Validación con Pydantic
+│       └── README.md                    # Documentación de la API
 │
 ├── models/                              # Modelos entrenados
-│   ├── decision_tree_model.pkl          # Modelo principal
-│   ├── label_encoders.pkl               # Encoders
-│   ├── model_metrics.pkl                # Métricas (pickle)
-│   └── model_metrics.json               # Métricas (JSON legible)
+│   └── latest/                          # Última versión del modelo
+│       ├── decision_tree_model.pkl      # Modelo principal
+│       ├── label_encoders.pkl           # Encoders
+│       ├── model_metrics.pkl            # Métricas (pickle)
+│       └── model_metrics.json           # Métricas (JSON legible)
 │
 ├── notebooks/                           # Jupyter notebooks
 │   ├── 01_exploratory_data_analysis.ipynb
@@ -258,12 +268,76 @@ pip install -r requirements.txt
 
 ---
 
+## 🌐 API REST (FastAPI)
+
+El proyecto incluye una API REST completa para servir el modelo en producción.
+
+### Iniciar la API
+
+```bash
+# Instalar dependencias adicionales
+pip install -r src/api/requirements.txt
+
+# Ejecutar el servidor
+uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Endpoints Disponibles
+
+- **Documentación interactiva**: http://localhost:8000/docs
+- **POST `/predict`**: Hacer predicciones
+- **GET `/health`**: Estado de la API y modelo
+- **GET `/model/info`**: Información del modelo cargado
+
+### Ejemplo de Uso
+
+```bash
+curl -X POST "http://localhost:8000/predict" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "gender": "Male",
+    "caste": "General",
+    "mathematics_marks": 85,
+    "english_marks": 78,
+    "science_marks": 82,
+    "father_occupation": "Government Officer",
+    "mother_occupation": "Teacher",
+    "number_of_siblings": 2,
+    "boarding": "No",
+    "distance_from_home": "Near",
+    "time": 5,
+    "coaching": "Yes"
+  }'
+```
+
+**Respuesta:**
+```json
+{
+  "prediction": "Good",
+  "probability": 0.85,
+  "model_version": "latest"
+}
+```
+
+📚 **Documentación completa**: Ver `src/api/README.md`
+
+### Información del Modelo
+
+- **Ruta del artefacto**: `models/latest/decision_tree_model.pkl`
+- **Versión actual**: `latest` (actualizada por el pipeline)
+- **Registro MLflow**: `models:/student-performance-dt/<version>`
+- **Tipo de modelo**: DecisionTreeClassifier (scikit-learn)
+- **Features de entrada**: 12 características (demográficas, académicas, hábitos de estudio)
+- **Clases de salida**: Average, Good, Very Good, Excellent
+
+---
+
 ## 📈 Próximos Pasos (Roadmap)
 
-- [ ] API REST con FastAPI
+- [x] API REST con FastAPI ✅
 - [ ] Dockerización del proyecto
 - [ ] CI/CD con GitHub Actions
-- [ ] Monitoring con MLflow
+- [x] Monitoring con MLflow ✅
 - [ ] Dashboard interactivo con Streamlit
 - [ ] Pruebas unitarias con pytest
 

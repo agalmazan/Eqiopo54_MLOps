@@ -1,0 +1,135 @@
+{
+  "info": {
+    "name": "Student Performance Prediction API",
+    "description": "Collection for testing the Student Performance Prediction FastAPI service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["health"]
+        },
+        "description": "Check if the API and model are healthy and loaded"
+      }
+    },
+    {
+      "name": "Model Info",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/model/info",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["model", "info"]
+        },
+        "description": "Get information about the loaded model"
+      }
+    },
+    {
+      "name": "Predict - Good Student",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"gender\": \"Male\",\n  \"caste\": \"General\",\n  \"mathematics_marks\": 85,\n  \"english_marks\": 78,\n  \"science_marks\": 82,\n  \"father_occupation\": \"Government Officer\",\n  \"mother_occupation\": \"Teacher\",\n  \"number_of_siblings\": 2,\n  \"boarding\": \"No\",\n  \"distance_from_home\": \"Near\",\n  \"time\": 5,\n  \"coaching\": \"Yes\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["predict"]
+        },
+        "description": "Predict performance for a student with good marks and study habits"
+      }
+    },
+    {
+      "name": "Predict - Excellent Student",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"gender\": \"Female\",\n  \"caste\": \"General\",\n  \"mathematics_marks\": 95,\n  \"english_marks\": 92,\n  \"science_marks\": 94,\n  \"father_occupation\": \"Government Officer\",\n  \"mother_occupation\": \"Teacher\",\n  \"number_of_siblings\": 1,\n  \"boarding\": \"Yes\",\n  \"distance_from_home\": \"Near\",\n  \"time\": 7,\n  \"coaching\": \"Yes\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["predict"]
+        },
+        "description": "Predict performance for an excellent student"
+      }
+    },
+    {
+      "name": "Predict - Average Student",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"gender\": \"Male\",\n  \"caste\": \"OBC\",\n  \"mathematics_marks\": 65,\n  \"english_marks\": 60,\n  \"science_marks\": 62,\n  \"father_occupation\": \"Farmer\",\n  \"mother_occupation\": \"Housewife\",\n  \"number_of_siblings\": 3,\n  \"boarding\": \"No\",\n  \"distance_from_home\": \"Far\",\n  \"time\": 3,\n  \"coaching\": \"No\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["predict"]
+        },
+        "description": "Predict performance for an average student"
+      }
+    },
+    {
+      "name": "Predict - Invalid Data (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"gender\": \"Male\",\n  \"caste\": \"General\",\n  \"mathematics_marks\": 150,\n  \"english_marks\": -10,\n  \"science_marks\": 82,\n  \"father_occupation\": \"Invalid Job\",\n  \"mother_occupation\": \"Teacher\",\n  \"number_of_siblings\": 2,\n  \"boarding\": \"No\",\n  \"distance_from_home\": \"Near\",\n  \"time\": 5,\n  \"coaching\": \"Yes\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/predict",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["predict"]
+        },
+        "description": "Test validation with invalid marks (out of range). Should return 422 error."
+      }
+    }
+  ]
+}
