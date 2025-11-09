@@ -123,6 +123,12 @@ python src/models/predict_model.py models/ --interactive
 
 ## 🔄 Pipeline Completo
 
+Se puede ejecutar todo el pipeline con el siguiente comando. Este reproducirá automáticamente las etapas definidas en `dvc.yaml`, utilizando los parámetros establecidos en `params.yaml`:
+
+```bash
+dvc repro
+```
+
 ### 1. Procesamiento de Datos
 
 ```bash
@@ -146,21 +152,12 @@ python src/models/train_model.py \
     models/
 
 # Sin optimización (más rápido, ~30 seg)
-python src/models/train_model.py \
-    src/data/processed/student_performance_clean.csv \
-    models/ \
-    --no-optimize
+- Cambiar los parametros desde `params.yaml`
 ```
 
 **Opciones adicionales:**
 
-```bash
-# Cambiar tamaño del test set
-python src/models/train_model.py src/data/processed/student_performance_clean.csv models/ --test-size 0.3
-
-# Cambiar random state
-python src/models/train_model.py src/data/processed/student_performance_clean.csv models/ --random-state 123
-```
+- Se pueden cambiar los hiperparámetros y la forma de generar los datos de entrenamiento desde `params.yaml`
 
 **Lo que genera:**
 - `decision_tree_model.pkl` - Modelo entrenado
