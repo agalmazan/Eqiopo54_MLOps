@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   mlops-pipeline:
     build:
@@ -6,15 +5,46 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
+    environment:
+      MLFLOW_TRACKING_URI: http://localhost:5000
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+    network_mode: host
+    working_dir: /app
     volumes:
-      - ./.git:/app/.git
-      - ./Equipo54_MLOps:/app
-      - ./.dvc:/app/.dvc
+      - .:/app
+      - ~/.aws:/root/.aws:ro
+      - ./.dvc/cache:/app/.dvc/cache
     command: >
-      bash -c "
-        ./scripts/setup_aws.sh &&
-        dvc pull &&
-        dvc repro &&
+      bash -lc "
+        git config --global --add safe.directory /app &&
+        echo '⬇️  dvc pull...' &&
+        dvc pull --force &&
+        echo '🚀 dvc repro...' &&
+        dvc repro --force &&
+        echo '⬆️  dvc push...' &&
         dvc push &&
-        echo 'Pipeline finished. Check for changes in dvc.lock and commit them.'
+        echo '✅ Pipeline completado.'
       "
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    ports: ["5000:5000"]
+    env_file:
+      - .env
+    environment:
+      - MLFLOW_HOST=0.0.0.0
+      - MLFLOW_PORT=5000
+    command: >
+      sh -c "
+        mkdir -p /data &&
+        mlflow server
+        --backend-store-uri sqlite:////data/mlflow.db
+        --default-artifact-root ${ARTIFACT_ROOT}
+        --host 0.0.0.0
+        --port 5000
+        --serve-artifacts
+        --dev
+      "
+    volumes:
+      - ./docker_data:/data
+    working_dir: /data

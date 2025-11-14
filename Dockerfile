@@ -1,61 +1,60 @@
-# Stage 1: Builder
-# ============================
-FROM python:3.9-slim as builder
+# syntax=docker/dockerfile:1.6
 
+##############################
+# Stage 1: Builder
+##############################
+FROM python:3.9 as builder
 WORKDIR /app
 
-# --- Copy only what's needed for installing dependencies ---
-COPY Equipo54_MLOps/setup.py Equipo54_MLOps/requirements.txt ./
+# 1) APT con caché (BuildKit)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ git git-lfs openssh-client curl && \
+    rm -rf /var/lib/apt/lists/* && git lfs install
 
-# --- Install system dependencies for compiling certain packages ---
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc g++ && \
-    rm -rf /var/lib/apt/lists/*
+# Copia mínimos para cachear pip en base a requirements (no TODO el repo)
+COPY Equipo54_MLOps/requirements.txt .
+COPY Equipo54_MLOps/setup.py .
 
-# --- Install Python dependencies (production only via setup.py) ---
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir .
+# 2) PIP con caché (BuildKit) + preferir binarios
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=100 \
+    PIP_NO_CACHE_DIR=1
+# Si quieres fallar si no hay wheel (evitar compilar):
+# ENV PIP_ONLY_BINARY=:all:
 
-# --- Log installed dependencies (for debugging builds) ---
-RUN echo "=== Installed dependencies ===" && pip freeze && echo "============================"
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    python -m pip install --upgrade pip setuptools wheel && \
+    python -m pip install -r requirements.txt || true && \
+    python -m pip install "dvc[s3]==3.*" mlflow boto3 awscli
 
-# --- Now copy the rest of the application code ---
+# Copia el resto del repo (esto no invalida la capa de pip)
 COPY . .
 
-# ============================
-# Stage 2: Runtime Image
-# ============================
+##############################
+# Stage 2: Runtime
+##############################
 FROM python:3.9-slim
-
 WORKDIR /app
 
-# --- Install lightweight runtime tools (e.g., git for DVC) ---
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git && \
-    rm -rf /var/lib/apt/lists/*
+# APT mínimo con caché (BuildKit)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    git git-lfs openssh-client curl && \
+    rm -rf /var/lib/apt/lists/* && git lfs install
 
-# --- Copy installed packages from builder ---
+# Copia paquetes instalados y binarios desde builder
 COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
-
-# --- Copy the entire project from builder ---
 COPY --from=builder /app /app
 
-# --- Install the local package (to ensure imports work) ---
-RUN cd /app/Equipo54_MLOps && pip install --no-cache-dir .
+# (Opcional) instala tu paquete local SOLO si realmente lo importas como módulo
+# Mejor evita reinstalarlo para no romper el caché:
+# RUN cd /app/Equipo54_MLOps && python -m pip install .
 
-# Test AWS and DVC setups
-RUN echo "Testing DVC and AWS setup..." && \
-    if [ -f /app/scripts/setup_aws.sh ]; then \
-        chmod +x /app/scripts/setup_aws.sh && \
-        echo "✅ setup_aws.sh ready"; \
-    else \
-        echo "⚠️ setup_aws.sh not found, skipping"; \
-    fi && \
-    dvc --version && echo "✅ DVC installed successfully"
+RUN dvc --version && mlflow --version && aws --version
 
-# Set working directory to the project root
-WORKDIR /app/
-
-# Default command
+ENV PYTHONUNBUFFERED=1 DVC_NO_ANALYTICS=1
 CMD ["/bin/bash"]

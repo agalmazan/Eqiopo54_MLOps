@@ -1,12 +1,12 @@
 # params.yaml
 train:
-  test_size: 0.2
+  test_size: 0.3
   random_state: 42
   optimize: true
 
 model:
   # Default parameters (used when optimize=false)
-  max_depth: 10
+  max_depth: 8
   min_samples_split: 20
   min_samples_leaf: 10
   criterion: "gini"

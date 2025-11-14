@@ -1,0 +1,174 @@
+# Nombre del workflow - Se ejecuta cuando hay push a dev o manualmente
+name: Deploy to Dev - Run Pipeline
+
+# Triggers del workflow
+on:
+  push:
+    branches: [ dev, feat/mlflow-refactor ]  # Automáticamente en pushes a dev
+  workflow_dispatch:   # Permite ejecución manual desde la UI
+
+# Permisos necesarios
+permissions:
+  contents: read      # Permiso para leer el repositorio
+  id-token: write    # Permiso para autenticación AWS
+  packages: write    # Permiso para publicar en GitHub Container Registry
+
+jobs:
+  deploy-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      # PASO 1: Checkout del código
+      # Incluye Git LFS para archivos grandes
+      - name: Checkout (with LFS)
+        uses: actions/checkout@v4
+        with:
+          lfs: true           # Habilita Git LFS
+          fetch-depth: 0      # Clona historial completo
+
+      # PASO 2: Configuración de Docker Buildx
+      # Permite construir imágenes con caché y multi-plataforma
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # PASO 3: Autenticación en GitHub Container Registry
+      # Permite guardar y recuperar imágenes Docker
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # PASO 4: Caché de capas Docker
+      # Acelera builds guardando capas entre ejecuciones
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          # Clave única basada en OS, requirements.txt y Dockerfile
+          key: ${{ runner.os }}-buildx-${{ hashFiles('**/requirements.txt') }}-${{ hashFiles('**/Dockerfile') }}
+          # Claves fallback si no hay match exacto
+          restore-keys: |
+            ${{ runner.os }}-buildx-${{ hashFiles('**/requirements.txt') }}-
+            ${{ runner.os }}-buildx-
+
+      # PASO 5: Caché de paquetes pip
+      # Evita descargar paquetes Python repetidamente
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # PASO 6: Construcción y push de la imagen Docker
+      # Construye la imagen usando caché y la publica en GHCR
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true         # Publica la imagen en GHCR
+          tags: ghcr.io/${{ github.repository_owner }}/eqiopo54_mlops/mlops-pipeline:dev
+          # Utiliza caché del registry y local
+          cache-from: |
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/eqiopo54_mlops/mlops-pipeline:dev
+            type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+      # PASO 7: Configuración de credenciales AWS
+      # Permite acceso a servicios AWS
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
+
+      # PASO 8: Caché de DVC
+      # Acelera operaciones de datos versionados
+      - name: Cache DVC
+        uses: actions/cache@v3
+        with:
+          path: .dvc/cache
+          key: ${{ runner.os }}-dvc-${{ hashFiles('**/*.dvc') }}
+          restore-keys: |
+            ${{ runner.os }}-dvc-
+
+      # PASO 8.5 Debuggear la configuración de AWS
+      - name: Debug S3 Configuration
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
+          ARTIFACT_ROOT: ${{ secrets.ARTIFACT_ROOT }}
+        run: |
+          echo "🔍 Verificando configuración de AWS..."
+      
+          # Verificar que las credenciales están configuradas (sin mostrar valores)
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "❌ AWS_ACCESS_KEY_ID no está configurado"
+          else
+            echo "✓ AWS_ACCESS_KEY_ID está configurado (longitud: ${#AWS_ACCESS_KEY_ID})"
+          fi
+      
+          if [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "❌ AWS_SECRET_ACCESS_KEY no está configurado"
+          else
+            echo "✓ AWS_SECRET_ACCESS_KEY está configurado (longitud: ${#AWS_SECRET_ACCESS_KEY})"
+          fi
+      
+          echo "✓ AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
+          echo "✓ ARTIFACT_ROOT: $ARTIFACT_ROOT"
+      
+          # Verificar identidad de AWS
+          echo ""
+          echo "🔍 Verificando identidad de AWS..."
+          aws sts get-caller-identity
+      
+          # Listar buckets disponibles
+          echo ""
+          echo "🔍 Listando buckets de S3 disponibles..."
+          aws s3 ls
+      
+          # Verificar si el bucket específico existe
+          echo ""
+          echo "🔍 Verificando bucket student-performance-mlflow..."
+          if aws s3 ls s3://my-dvc-study-entry-performance-data 2>&1 | grep -q 'NoSuchBucket'; then
+            echo "❌ El bucket student-performance-mlflow NO existe"
+          else
+            echo "✓ El bucket my-dvc-study-entry-performance-data existe"
+            aws s3 ls s3://my-dvc-study-entry-performance-data
+          fi
+
+      # PASO 9: Ejecución del pipeline MLOps
+      # Ejecuta el pipeline usando docker-compose
+      - name: Run MLOps Pipeline
+        env:
+          # Variables de entorno necesarias
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MLFLOW_EXPERIMENT: ${{ secrets.MLFLOW_EXPERIMENT || 'student-performance' }}
+          MLFLOW_DEFAULT_ARTIFACT_ROOT: ${{ secrets.ARTIFACT_ROOT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
+          ARTIFACT_ROOT: ${{ secrets.ARTIFACT_ROOT }}
+        run: |
+          docker compose -f docker-compose.ci.yml up --abort-on-container-exit
+          docker compose -f docker-compose.ci.yml down -v
+
+      # PASO 10: Subida de reportes
+      # Guarda los artefactos generados
+      - name: Upload Pipeline Reports
+        if: always()  # Ejecuta incluso si pasos anteriores fallan
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-reports-${{ github.sha }}
+          path: |
+            Equipo54_MLOps/reports/**
+            Equipo54_MLOps/models/*.pkl
+            !**/*.dvc
+          retention-days: 30
+          if-no-files-found: ignore

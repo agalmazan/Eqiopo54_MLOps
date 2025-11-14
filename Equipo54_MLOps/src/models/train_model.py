@@ -5,14 +5,44 @@ Uso:
     python src/models/train_model.py data/processed/student_features.csv models/
 """
 
-import pandas as pd
-import argparse
 import os
+import json
 import logging
+import argparse
 import joblib
+import pandas as pd
+import mlflow, mlflow.sklearn
+from datetime import datetime
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.tree import DecisionTreeClassifier
 import dvc.api
+
+# ---------- utilidades nuevas ----------
+from pathlib import Path
+import subprocess
+import yaml
+
+def _flatten(d, parent="", sep="."):
+    out = {}
+    for k, v in d.items():
+        kk = f"{parent}{sep}{k}" if parent else k
+        if isinstance(v, dict):
+            out.update(_flatten(v, kk, sep))
+        else:
+            out[kk] = v
+    return out
+
+def _git_rev():
+    try:
+        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode().strip()
+    except Exception:
+        return "unknown"
+
+try:
+    from mlflow.models.signature import infer_signature
+except Exception:
+    infer_signature = None
+# ---------------------------------------
 
 # Configurar logging
 logging.basicConfig(
@@ -21,16 +51,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+mlflow.set_experiment(os.getenv("MLFLOW_EXPERIMENT", "student-performance"))
 
 def load_features(data_path):
     """
     Carga features ya procesadas y codificadas
-    
-    Args:
-        data_path (str): Ruta del archivo CSV con features
-        
-    Returns:
-        tuple: (X, y)
     """
     logger.info(f"Cargando features desde: {data_path}")
     df = pd.read_csv(data_path)
@@ -42,31 +67,19 @@ def load_features(data_path):
 
     logger.info(f"X: {X.shape}, y: {y.shape}")
     logger.info(f"Features: {list(X.columns)}")
-    
     return X, y
-
-
 
 def train_model(X_train, y_train, params):
     """
     Entrena el modelo de árbol de decisión
-
-    Args:
-        X_train: Features de entrenamiento
-        y_train: Target de entrenamiento
-        params: Parámetros del modelo desde DVC
-
-    Returns:
-        tuple: (modelo, best_params, cv_score)
     """
     optimize = params['train']['optimize']
 
     if optimize:
         logger.info("🔍 Optimizando hiperparámetros con GridSearchCV...")
 
-        # Use param_grid from DVC params
         param_grid = params['model']['param_grid']
-        grid_search_config = params['model']['grid_search']
+        gs_cfg = params['model']['grid_search']
 
         grid_search = GridSearchCV(
             DecisionTreeClassifier(
@@ -74,10 +87,10 @@ def train_model(X_train, y_train, params):
                 class_weight=params['model']['class_weight']
             ),
             param_grid,
-            cv=grid_search_config['cv'],
-            scoring=grid_search_config['scoring'],
-            n_jobs=grid_search_config['n_jobs'],
-            verbose=grid_search_config['verbose']
+            cv=gs_cfg['cv'],
+            scoring=gs_cfg['scoring'],
+            n_jobs=gs_cfg['n_jobs'],
+            verbose=gs_cfg['verbose']
         )
 
         grid_search.fit(X_train, y_train)
@@ -85,38 +98,29 @@ def train_model(X_train, y_train, params):
         logger.info(f"✅ Mejor CV Score: {grid_search.best_score_:.4f}")
         logger.info(f"✅ Mejores parámetros: {grid_search.best_params_}")
 
-        return grid_search.best_estimator_, grid_search.best_params_, grid_search.best_score_
+        # Devolvemos también cv_results_ por si queremos subirlo
+        return grid_search.best_estimator_, grid_search.best_params_, grid_search.best_score_, grid_search.cv_results_
 
     else:
         logger.info("Entrenando modelo con parámetros por defecto...")
 
-        model_params = params['model']
+        mp = params['model']
         model = DecisionTreeClassifier(
             random_state=params['train']['random_state'],
-            max_depth=model_params['max_depth'],
-            min_samples_split=model_params['min_samples_split'],
-            min_samples_leaf=model_params['min_samples_leaf'],
-            criterion=model_params['criterion'],
-            class_weight=model_params['class_weight']
+            max_depth=mp['max_depth'],
+            min_samples_split=mp['min_samples_split'],
+            min_samples_leaf=mp['min_samples_leaf'],
+            criterion=mp['criterion'],
+            class_weight=mp['class_weight']
         )
 
         model.fit(X_train, y_train)
-
-        return model, None, None
-
+        return model, None, None, None
 
 def save_model_and_splits(model, X_train, X_test, y_train, y_test,
-                          output_dir, best_params=None, cv_score=None,
-                          encoders = None):
+                          output_dir, best_params=None, cv_score=None):
     """
-    Guarda el modelo y los splits de datos
-
-    Args:
-        model: Modelo entrenado
-        X_train, X_test, y_train, y_test: Datos de entrenamiento y prueba
-        output_dir: Directorio de salida
-        best_params: Mejores parámetros del GridSearch (opcional)
-        cv_score: Score de validación cruzada (opcional)
+    Guarda el modelo y los splits de datos (para DVC/evaluate)
     """
     os.makedirs(output_dir, exist_ok=True)
 
@@ -125,7 +129,7 @@ def save_model_and_splits(model, X_train, X_test, y_train, y_test,
     joblib.dump(model, model_path)
     logger.info(f"✅ Modelo guardado en: {model_path}")
 
-    # Guardar splits para evaluate_model.py
+    # Guardar splits (para evaluate_model.py)
     splits_path = os.path.join(output_dir, 'train_test_split.pkl')
     joblib.dump({
         'X_train': X_train,
@@ -134,8 +138,9 @@ def save_model_and_splits(model, X_train, X_test, y_train, y_test,
         'y_test': y_test
     }, splits_path)
     logger.info(f"✅ Train/test splits guardados en: {splits_path}")
-    
-    # Guardar parámetros del modelo (opcional)
+
+    # Guardar parámetros del modelo (si hubo búsqueda)
+    params_path = None
     if best_params is not None:
         params_path = os.path.join(output_dir, 'model_params.pkl')
         joblib.dump({
@@ -144,29 +149,18 @@ def save_model_and_splits(model, X_train, X_test, y_train, y_test,
         }, params_path)
         logger.info(f"✅ Parámetros guardados en: {params_path}")
 
+    return model_path, splits_path, params_path
 
 def main():
     """Función principal"""
 
-    # Load parameters from DVC
+    # 1) Parámetros desde DVC
     params = dvc.api.params_show()
-    logger.info("📊 DVC Parameters loaded")
+    logger.info("📊 Parámetros DVC cargados")
 
-
-    parser = argparse.ArgumentParser(
-        description='Entrenar modelo de árbol de decisión'
-    )
-    parser.add_argument(
-        'data_path',
-        type=str,
-        help='Ruta del archivo CSV con features procesadas'
-    )
-    parser.add_argument(
-        'output_dir',
-        type=str,
-        help='Directorio donde guardar el modelo'
-    )
-
+    parser = argparse.ArgumentParser(description='Entrenar modelo de árbol de decisión')
+    parser.add_argument('data_path', type=str, help='Ruta del archivo CSV con features procesadas')
+    parser.add_argument('output_dir', type=str, help='Directorio donde guardar el modelo')
     args = parser.parse_args()
 
     if not os.path.exists(args.data_path):
@@ -177,31 +171,89 @@ def main():
     logger.info("🚀 INICIANDO ENTRENAMIENTO DEL MODELO")
     logger.info("=" * 60)
 
-    # 1. Cargar features
+    # 2) Cargar features
     X, y = load_features(args.data_path)
 
-    # 2. Split train/test using DVC parameters
+    # 3) Split train/test desde params
     test_size = params['train']['test_size']
     random_state = params['train']['random_state']
-
-    logger.info(f"\nDividiendo datos (test_size={test_size})...")
+    logger.info(f"Dividiendo datos (test_size={test_size}, random_state={random_state})...")
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
-        test_size=test_size,
-        random_state=random_state,
-        stratify=y
+        X, y, test_size=test_size, random_state=random_state, stratify=y
     )
     logger.info(f"Train: {X_train.shape}, Test: {X_test.shape}")
 
-    # 3. Entrenar modelo usando parametros de DVC
-    model, best_params, cv_score = train_model(
-        X_train, y_train,
-        params=params
-    )
+    # 4) INTEGRACIÓN CON MLFLOW
+    mlflow.set_experiment("student-performance")  # mismo nombre local/prod
 
-    # 4. Guardar modelo y splits
-    save_model_and_splits(model, X_train, X_test, y_train, y_test,
-                          args.output_dir, best_params, cv_score)
+    with mlflow.start_run(run_name="train"):
+        # 4.1 Tags y params
+        mlflow.set_tag("pipeline_stage", "train")
+        mlflow.set_tag("git_rev", _git_rev())
+        mlflow.set_tag("timestamp", datetime.now().isoformat())
+
+        # Log params (aplana para tener llaves tipo train.test_size, model.max_depth, etc.)
+        flat_params = _flatten(params)
+        # Si no quieres enviar todo, filtra:
+        keep = {k: v for k, v in flat_params.items() if k.startswith(("train.", "model."))}
+        if keep:
+            mlflow.log_params(keep)
+
+        # 4.2 Entrenamiento
+        model, best_params, cv_score, cv_results = train_model(X_train, y_train, params=params)
+
+        # 4.3 Guardar artefactos para DVC/evaluate
+        model_path, splits_path, model_params_path = save_model_and_splits(
+            model, X_train, X_test, y_train, y_test, args.output_dir, best_params, cv_score
+        )
+
+        # 4.4 Log de “metadata” útil como artefactos
+        # - columnas (esquema simple)
+        cols_file = Path(args.output_dir) / "feature_columns.json"
+        cols_file.write_text(json.dumps({"columns": list(X.columns)}, indent=2), encoding="utf-8")
+        # Debug logging
+        logger.info(f"🔍 MLflow artifact root: {os.getenv('MLFLOW_S3_ENDPOINT_URL', 'Not set')}")
+        logger.info(f"🔍 ARTIFACT_ROOT env var: {os.getenv('ARTIFACT_ROOT', 'Not set')}")
+        logger.info(f"🔍 MLflow tracking URI: {mlflow.get_tracking_uri()}")
+        logger.info(f"🔍 MLflow artifact URI: {mlflow.get_artifact_uri()}")
+        
+        try:
+            mlflow.log_artifact(str(cols_file), artifact_path="schema")
+            logger.info("✅ Artifact logged successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to log artifact: {e}")
+            logger.error(f"🔍 Trying to upload to bucket extracted from error: {str(e)}")
+            raise
+
+        # - si hubo GridSearch, sube cv_results_
+        if cv_results is not None:
+            cv_file = Path(args.output_dir) / "cv_results.json"
+            with open(cv_file, "w", encoding="utf-8") as f:
+                json.dump({k:list(map(lambda x: x if isinstance(x,(int,float,str,bool)) else str(x), v))
+                           for k,v in cv_results.items()}, f, indent=2)
+            mlflow.log_artifact(str(cv_file), artifact_path="cv")
+
+        if model_params_path and Path(model_params_path).exists():
+            mlflow.log_artifact(model_params_path, artifact_path="artifacts")
+
+        # 4.5 Log del modelo a MLflow (con firma, si se puede)
+        signature = None
+        input_example = None
+        if infer_signature is not None:
+            try:
+                signature = infer_signature(X_train, model.predict(X_train[:50]))
+                input_example = X_train.head(2)
+            except Exception as e:
+                logger.warning(f"No se pudo inferir signature: {e}")
+
+        registered_name = os.getenv("MLFLOW_REGISTERED_MODEL", "").strip() or None
+        mlflow.sklearn.log_model(
+            sk_model=model,
+            artifact_path="model",
+            signature=signature,
+            input_example=input_example,
+            registered_model_name=registered_name
+        )
 
     # Resumen final
     logger.info("\n" + "=" * 60)
@@ -209,8 +261,12 @@ def main():
     logger.info("=" * 60)
     logger.info(f"Modelo guardado en: {args.output_dir}")
     logger.info("Para evaluar el modelo, ejecuta:")
-    logger.info(f"  python src/models/evaluate_model.py {args.output_dir}/decision_tree_model.pkl {args.output_dir}/train_test_split.pkl models/label_encoders.pkl reports/metrics/")
-
+    logger.info(
+        f"  python src/models/evaluate_model.py "
+        f"{args.output_dir}/decision_tree_model.pkl "
+        f"{args.output_dir}/train_test_split.pkl "
+        f"models/label_encoders.pkl reports/metrics/"
+    )
 
 if __name__ == '__main__':
     main()
