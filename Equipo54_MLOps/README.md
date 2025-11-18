@@ -208,6 +208,31 @@ El CSV de salida incluirá:
 
 ---
 
+## 🧪 Ejecutar Pruebas
+
+El proyecto incluye **30 pruebas automatizadas** (unitarias e integración):
+
+```bash
+# Ejecutar todas las pruebas
+pytest
+
+# Modo silencioso
+pytest -q
+
+# Con cobertura de código
+pytest --cov=src --cov-report=html
+```
+
+**Cobertura de tests:**
+- ✅ Procesamiento de datos (`test_data_processing.py`)
+- ✅ Construcción de features (`test_feature_engineering.py`)
+- ✅ Predicción del modelo (`test_prediction.py`)
+- ✅ Pipeline extremo a extremo (`test_integration.py`)
+
+Ver documentación completa: [`tests/README.md`](tests/README.md)
+
+---
+
 ## 📊 Métricas del Modelo
 
 El modelo entrenado genera las siguientes métricas (guardadas en `models/model_metrics.json`):
@@ -338,8 +363,8 @@ curl -X POST "http://localhost:8000/predict" \
 - [ ] Dockerización del proyecto
 - [ ] CI/CD con GitHub Actions
 - [x] Monitoring con MLflow ✅
+- [x] Pruebas unitarias con pytest ✅
 - [ ] Dashboard interactivo con Streamlit
-- [ ] Pruebas unitarias con pytest
 
 ---
 
