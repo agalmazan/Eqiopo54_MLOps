@@ -102,3 +102,4 @@ Equipo54_MLOps/reports/metrics/
 Equipo54_MLOps/reports/predictions.csv
 Equipo54_MLOps/src/data/processed/
 mlartifacts
+docker_data

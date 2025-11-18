@@ -2,11 +2,11 @@ stages:
   process_data:
     cmd: > 
       python Equipo54_MLOps/src/data/make_dataset.py 
-      Equipo54_MLOps/src/data/raw/student_entry_performance_modified.csv
+      Equipo54_MLOps/src/data/raw/student_entry_performance_modified_DataDrift.csv
       Equipo54_MLOps/src/data/processed/student_clean.csv
     deps:
       - Equipo54_MLOps/src/data/make_dataset.py
-      - Equipo54_MLOps/src/data/raw/student_entry_performance_modified.csv
+      - Equipo54_MLOps/src/data/raw/student_entry_performance_modified_DataDrift.csv
     outs:
       - Equipo54_MLOps/src/data/processed/student_clean.csv
 
